@@ -12,3 +12,8 @@ This repository contains the full stack implementation for the campus notificati
 1. Install dependencies for the middleware: `cd logging_middleware && npm install && npm run build`
 2. Run backend priority script: `cd notification_app_be && npx ts-node priority_inbox.ts`
 3. Run frontend: `cd notification_app_fe && npm install && npm run dev`
+
+## Screenshots
+
+### Frontend App
+![Frontend Screenshot](./frontend_screenshot.png)
