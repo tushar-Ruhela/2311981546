@@ -38,11 +38,8 @@ export default async function Home() {
   const notifications = await fetchNotifications();
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-gray-800">Campus Hub</h1>
-        <NotificationDashboard initialNotifications={notifications} />
-      </div>
+    <main className="min-h-screen bg-[#f3f4f6]">
+      <NotificationDashboard initialNotifications={notifications} />
     </main>
   );
 }

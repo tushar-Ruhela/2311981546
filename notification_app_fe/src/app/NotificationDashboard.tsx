@@ -2,8 +2,6 @@
 
 import { useState, useMemo, useEffect } from 'react';
 
-// Using a mock Log function for the client side to avoid importing server-only code
-// In a real app, this would ping a Next.js API route that consumes the logging_middleware
 const clientLog = async (level: string, pkg: string, message: string) => {
     try {
         await fetch('/api/log', {
@@ -30,18 +28,27 @@ const getWeight = (type: string): number => {
     }
 };
 
+const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffHours < 1) return 'Just now';
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return `${Math.floor(diffHours / 24)} days ago`;
+};
+
 export default function NotificationDashboard({ initialNotifications }: { initialNotifications: Notification[] }) {
-    const [viewMode, setViewMode] = useState<'all' | 'priority'>('priority');
+    const [viewMode, setViewMode] = useState<'all' | 'priority'>('all');
     const [filterType, setFilterType] = useState<string>('all');
     const [topN, setTopN] = useState<number>(10);
 
-    // Initial mount log
     useEffect(() => {
         clientLog("info", "component", "NotificationDashboard mounted");
     }, []);
 
     const processedNotifications = useMemo(() => {
-        let filtered = initialNotifications;
+        let filtered = initialNotifications || [];
         if (filterType !== 'all') {
             filtered = filtered.filter(n => n.Type.toLowerCase() === filterType.toLowerCase());
         }
@@ -60,6 +67,7 @@ export default function NotificationDashboard({ initialNotifications }: { initia
 
     const handleViewChange = (mode: 'all' | 'priority') => {
         setViewMode(mode);
+        setFilterType('all');
         clientLog("info", "state", `View mode changed to ${mode}`);
     };
 
@@ -68,85 +76,113 @@ export default function NotificationDashboard({ initialNotifications }: { initia
         clientLog("info", "state", `Filter changed to ${type}`);
     };
 
-    const getBadgeColor = (type: string) => {
+    const getBorderColor = (type: string) => {
         switch (type.toLowerCase()) {
-            case 'placement': return 'bg-green-100 text-green-800 border-green-200';
-            case 'result': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'event': return 'bg-purple-100 text-purple-800 border-purple-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200';
+            case 'placement': return 'border-green-600';
+            case 'result': return 'border-blue-500';
+            case 'event': return 'border-red-500';
+            default: return 'border-gray-500';
         }
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            {/* Header Controls */}
-            <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between gap-4">
-                <div className="flex gap-2">
+        <div className="flex flex-col min-h-screen bg-gray-50 font-sans">
+            {/* Top Navbar */}
+            <nav className="bg-[#1f295b] text-white py-3 px-8 flex justify-between items-center shadow-md z-10">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg font-medium tracking-wide">Campus Notification Platform</span>
+                </div>
+                <div className="flex gap-6 text-xs font-semibold tracking-wider">
                     <button 
-                        onClick={() => handleViewChange('priority')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'priority' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
-                    >
-                        Priority Inbox
-                    </button>
-                    <button 
+                        className={`transition-colors ${viewMode === 'all' ? 'text-white' : 'text-blue-200 hover:text-white'}`}
                         onClick={() => handleViewChange('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'all' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
                     >
-                        All Notifications
+                        ALL NOTIFICATIONS
+                    </button>
+                    <button 
+                        className={`transition-colors ${viewMode === 'priority' ? 'text-white' : 'text-blue-200 hover:text-white'}`}
+                        onClick={() => handleViewChange('priority')}
+                    >
+                        PRIORITY INBOX
+                    </button>
+                </div>
+            </nav>
+
+            <div className="max-w-5xl mx-auto w-full px-8 py-8 flex-1 flex flex-col">
+                <div className="flex justify-between items-end mb-6">
+                    <h1 className="text-3xl font-medium text-gray-800 tracking-tight">
+                        {viewMode === 'priority' ? 'Priority Inbox' : 'All Notifications'}
+                    </h1>
+                    <button className="bg-[#2d3a77] text-white px-4 py-2 text-xs font-semibold rounded shadow-sm hover:bg-[#1f295b] transition-colors tracking-wider">
+                        MARK ALL READ
                     </button>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    {viewMode === 'priority' && (
-                        <select 
-                            value={topN} 
-                            onChange={(e) => setTopN(Number(e.target.value))}
-                            className="bg-white border rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                {/* Tabs */}
+                <div className="flex gap-6 border-b border-gray-300 mb-6 text-xs font-semibold tracking-wider text-gray-500">
+                    {['all', 'placement', 'result', 'event'].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => handleFilterChange(tab)}
+                            className={`pb-3 uppercase ${filterType === tab ? 'text-gray-800 border-b-2 border-[#2d3a77]' : 'hover:text-gray-800'}`}
                         >
-                            <option value={5}>Top 5</option>
-                            <option value={10}>Top 10</option>
-                            <option value={15}>Top 15</option>
-                        </select>
-                    )}
+                            {tab}
+                        </button>
+                    ))}
                     
-                    <select 
-                        value={filterType} 
-                        onChange={(e) => handleFilterChange(e.target.value)}
-                        className="bg-white border rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="all">All Types</option>
-                        <option value="placement">Placement</option>
-                        <option value="result">Result</option>
-                        <option value="event">Event</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* List */}
-            <div className="divide-y divide-gray-50">
-                {processedNotifications.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                        No notifications found.
-                    </div>
-                ) : (
-                    processedNotifications.map((notif) => (
-                        <div key={notif.ID} className="p-4 hover:bg-gray-50 transition-colors flex items-start justify-between group">
-                            <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-3">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getBadgeColor(notif.Type)}`}>
-                                        {notif.Type}
-                                    </span>
-                                    <span className="text-xs text-gray-400 font-medium">
-                                        {new Date(notif.Timestamp).toLocaleString()}
-                                    </span>
-                                </div>
-                                <p className="text-gray-800 font-medium mt-1 group-hover:text-indigo-700 transition-colors">
-                                    {notif.Message}
-                                </p>
-                            </div>
+                    {viewMode === 'priority' && (
+                        <div className="ml-auto pb-3 flex items-center gap-2">
+                            <span className="text-gray-500">LIMIT:</span>
+                            <select 
+                                value={topN} 
+                                onChange={(e) => setTopN(Number(e.target.value))}
+                                className="bg-transparent text-gray-800 font-semibold outline-none cursor-pointer"
+                            >
+                                <option value={5}>TOP 5</option>
+                                <option value={10}>TOP 10</option>
+                                <option value={15}>TOP 15</option>
+                            </select>
                         </div>
-                    ))
-                )}
+                    )}
+                </div>
+
+                {/* Notifications List */}
+                <div className="flex-1 flex flex-col border border-gray-200 rounded-md bg-white shadow-sm overflow-hidden">
+                    {processedNotifications.length === 0 ? (
+                        <div className="p-12 text-center text-gray-500 font-medium flex-1 flex items-center justify-center">
+                            No notifications to display.
+                        </div>
+                    ) : (
+                        <div className="flex flex-col divide-y divide-gray-100">
+                            {processedNotifications.map((notif, index) => (
+                                <div key={notif.ID} className={`relative p-5 pl-6 bg-white hover:bg-gray-50 transition-colors flex items-center justify-between border-l-4 ${getBorderColor(notif.Type)}`}>
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-[17px] font-semibold text-gray-800 leading-tight">
+                                                {notif.Message}
+                                                <span className="text-red-500 text-xs align-top ml-0.5">•</span>
+                                            </h3>
+                                            {/* Show 'NEW' badge randomly or based on index just to match screenshot vibe */}
+                                            {index === 0 && (
+                                                <span className="bg-[#6b46c1] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-1">
+                                                    NEW
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[13px] text-gray-500 font-medium">
+                                            {formatTimeAgo(notif.Timestamp)}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded">
+                                            {notif.Type}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
